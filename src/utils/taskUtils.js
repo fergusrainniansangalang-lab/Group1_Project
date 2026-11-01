@@ -1,22 +1,35 @@
-export const generateId = () => {
-  return Date.now().toString() + Math.random().toString(36).substring(2, 9);
-};
+// @file    taskUtils.js
+// @folder  src/utils/
+// @about   Pure utility functions for filtering and aggregating posts/tasks.
+//
+// What this file does:
+// - filterPosts()      — filters the posts array by tab (All/Pending/Completed) and keyword.
+// - calculateStats()   — returns { total, pending, completed } counts from a posts array.
+// - Used by FilterTabs, TaskStats, and HomeScreen without any side effects.
 
-// Formats a task's start/end timestamps into a short duration label,
-// e.g. "Sep 24, 09:00 AM - 05:00 PM" or, across days,
-// "Sep 24, 09:00 AM - Sep 25, 05:00 PM".
-export const formatTaskDuration = (startTimestamp, endTimestamp) => {
-  const start = new Date(startTimestamp);
-  const end = new Date(endTimestamp);
+export const taskUtils = {
+  filterPosts: (posts, filter, searchQuery) => {
+    return posts.filter(post => {
+      const matchesFilter =
+        filter === 'All' ? true :
+        filter === 'Completed' ? post.completed :
+        filter === 'Pending' ? !post.completed :
+        post.category === filter;
 
-  const formatTime = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const formatDate = (d) => d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      const matchesSearch =
+        post.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.author.toLowerCase().includes(searchQuery.toLowerCase());
 
-  const sameDay = start.toDateString() === end.toDateString();
-
-  if (sameDay) {
-    return `${formatDate(start)}, ${formatTime(start)} - ${formatTime(end)}`;
+      return matchesFilter && matchesSearch;
+    });
+  },
+  calculateStats: (posts) => {
+    const total = posts.length;
+    const completed = posts.filter(p => p.completed).length;
+    const pending = total - completed;
+    const totalReactions = posts.reduce((acc, p) => {
+      return acc + Object.values(p.reactions).reduce((a, b) => a + b, 0);
+    }, 0);
+    return { total, completed, pending, totalReactions };
   }
-
-  return `${formatDate(start)} ${formatTime(start)} - ${formatDate(end)} ${formatTime(end)}`;
 };

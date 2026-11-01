@@ -1,427 +1,354 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  SafeAreaView, 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  Image,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform
-} from 'react-native';
-import { Plus, CheckCircle2, Calendar, List as ListIcon, Settings, Search } from 'lucide-react-native';
-import { theme } from '../styles/theme';
-import TaskList from '../components/TaskList';
-import AddTaskModal from '../components/AddTaskModal';
-import FilterTabs from '../components/FilterTabs';
-import { taskStorage } from '../services/taskStorage';
-import { generateId } from '../utils/taskUtils';
+// @file    HomeScreen.js
+// @folder  src/screens/
+// @about   Main Facebook feed screen showing stories, posts, and the AI briefing card.
+//
+// What this file does:
+// - Renders the primary Facebook feed: pinned post composer, stories carousel, and post list.
+// - Shows the AI Feed Digest card (AIBriefingCard) powered by useFeedBriefing hook.
+// - Applies category filter pills (All/Work/Personal/Ideas) and live search filtering.
+// - Passes all post interaction callbacks (react, comment, share, edit, delete) to TaskList.
 
-const HomeScreen = () => {
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState('');
-  
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingTask, setEditingTask] = useState(null);
-  
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
+import React from 'react';
+import { View, Text, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { TaskItem } from '../components/feed/TaskItem';
+import { AIBriefingCard } from '../components/feed/AIBriefingCard';
 
-  // "Category" filter: All / Active / Completed
-  const [selectedFilter, setSelectedFilter] = useState('All');
+const STORIES = [
+  {
+    id: 1,
+    name: 'Add to Story',
+    isCreate: true,
+    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300',
+  },
+  {
+    id: 2,
+    name: 'Sarah Jenkins',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
+    image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400',
+  },
+  {
+    id: 3,
+    name: 'David Chen',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
+    image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400',
+  },
+  {
+    id: 4,
+    name: 'Maya Lin',
+    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100',
+    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=400',
+  },
+];
 
-  // Uncontrolled ref
-  const searchInputRef = useRef(null);
+export const HomeScreen = ({
+  posts,
+  stories = [],
+  activeTab,
+  setActiveTab,
+  searchQuery,
+  onToggleComplete,
+  onDelete,
+  onEdit,
+  onReact,
+  onAddComment,
+  onShare,
+  onOpenAddModal,
+  onOpenAddStory,
+  onViewStory,
+  isDark,
+  user,
+  briefing,
+  briefingLoading,
+  briefingError,
+  onRefreshBriefing,
+  onOpenAIChat,
+}) => {
+  const authorName = user?.name || 'Alex Morgan';
+  const authorAvatar =
+    user?.avatar ||
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100';
 
-  useEffect(() => {
-    loadSavedTasks();
-  }, []);
+  const cardBg = isDark ? '#242526' : '#FFFFFF';
+  const textColor = isDark ? '#E4E6EB' : '#050505';
+  const subTextColor = isDark ? '#B0B3B8' : '#65676B';
+  const border = isDark ? '#3E4042' : '#CED0D4';
+  const inputBg = isDark ? '#3A3B3C' : '#F0F2F5';
 
-  const loadSavedTasks = async () => {
-    try {
-      setLoading(true);
-      setErrorMsg('');
-      const savedTasks = await taskStorage.loadTasks();
-      
-      if (savedTasks.length === 0) {
-        const sampleTasks = [
-          { id: generateId(), title: 'Review Q4 Design System', description: 'High', completed: false, createdAt: Date.now() },
-          { id: generateId() + '1', title: 'Sync with engineering team', description: '14:00', completed: false, createdAt: Date.now() },
-          { id: generateId() + '2', title: 'Update typography tokens', description: '', completed: false, createdAt: Date.now() },
-          { id: generateId() + '3', title: 'Approve final wireframes', description: '', completed: true, createdAt: Date.now() },
-        ];
-        setTasks(sampleTasks);
-        await taskStorage.saveTasks(sampleTasks);
-      } else {
-        setTasks(savedTasks);
-      }
-    } catch (error) {
-      setErrorMsg('We couldn\'t load your saved tasks. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const persistTasks = async (updatedTasks) => {
-    try {
-      await taskStorage.saveTasks(updatedTasks);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to save tasks.');
-    }
-  };
-
-  const handleSaveTask = (taskData) => {
-    let updatedTasks;
-    
-    if (editingTask) {
-      const taskIndex = tasks.findIndex(t => t.id === editingTask.id);
-      if (taskIndex !== -1) {
-        updatedTasks = [...tasks];
-        updatedTasks[taskIndex] = {
-          ...updatedTasks[taskIndex],
-          title: taskData.title,
-          description: taskData.description,
-          startDate: taskData.startDate,
-          endDate: taskData.endDate,
-        };
-      }
-    } else {
-      const newTask = {
-        id: generateId(),
-        title: taskData.title,
-        description: taskData.description,
-        startDate: taskData.startDate,
-        endDate: taskData.endDate,
-        completed: false,
-        createdAt: Date.now(),
-      };
-      // Add to beginning of active tasks
-      updatedTasks = [newTask, ...tasks];
-    }
-
-    if (updatedTasks) {
-      setTasks(updatedTasks);
-      persistTasks(updatedTasks);
-      
-      // Mock notification scheduling
-      if (taskData.startDate) {
-        const timeStr = new Date(taskData.startDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        Alert.alert('Notification Set', `A reminder has been scheduled for ${timeStr}`);
-      }
-    }
-    
-    setIsModalVisible(false);
-    setEditingTask(null);
-  };
-
-  const handleToggleTask = (taskId) => {
-    const updatedTasks = tasks.map(task => 
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    );
-    setTasks(updatedTasks);
-    persistTasks(updatedTasks);
-  };
-
-  const handleDeleteTask = (taskId) => {
-    const updatedTasks = tasks.filter(task => task.id !== taskId);
-    setTasks(updatedTasks);
-    persistTasks(updatedTasks);
-  };
-
-  const handleEditTask = (taskToEdit) => {
-    const task = tasks.find(t => t.id === taskToEdit.id);
-    if (task) {
-      setEditingTask(task);
-      setIsModalVisible(true);
-    }
-  };
-
-  const openSearch = () => {
-    setShowSearch(!showSearch);
-    setSearchQuery('');
-    // Use ref to focus if we just opened it
-    if (!showSearch) {
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 100);
-    }
-  };
-
-  const getFilteredTasks = () => {
-    let filtered = tasks;
-
-    if (selectedFilter === 'Active') {
-      filtered = filtered.filter(task => !task.completed);
-    } else if (selectedFilter === 'Completed') {
-      filtered = filtered.filter(task => task.completed);
-    }
-
-    if (searchQuery) {
-      filtered = filtered.filter(task =>
-        task.title.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    return filtered;
-  };
-
-  // Simple search recommendations, styled like our filter categories:
-  // suggest a few existing task titles the user can tap to search by.
-  const getSearchSuggestions = () => {
-    const uniqueTitles = [...new Set(tasks.map(task => task.title))];
-    return uniqueTitles.slice(0, 5);
-  };
+  const filteredPosts = posts.filter((post) => {
+    const matchesCategory =
+      activeTab === 'All' ? true : post.category === activeTab;
+    const trimmedQuery = (searchQuery || '').trim().toLowerCase();
+    const matchesSearch = trimmedQuery
+      ? post.content?.toLowerCase().includes(trimmedQuery) ||
+        post.author?.toLowerCase().includes(trimmedQuery)
+      : true;
+    return matchesCategory && matchesSearch;
+  });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Today</Text>
-          <Text style={styles.dateText}>Mon, Oct 24</Text>
-        </View>
-        <Image 
-          source={{ uri: 'https://i.pravatar.cc/100?img=33' }} 
-          style={styles.avatar} 
-        />
-      </View>
-
-      {showSearch && (
-        <View style={styles.searchContainer}>
-          <Search size={18} color={theme.colors.textMuted} />
-          <TextInput
-            ref={searchInputRef}
-            style={styles.searchInput}
-            placeholder="Search tasks..."
-            placeholderTextColor={theme.colors.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => {
-              setSearchQuery('');
-              searchInputRef.current?.clear();
-            }}>
-              <Text style={styles.clearText}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {showSearch && searchQuery.length === 0 && getSearchSuggestions().length > 0 && (
-        <View style={styles.suggestionsContainer}>
-          {getSearchSuggestions().map((suggestion) => (
-            <TouchableOpacity
-              key={suggestion}
-              style={styles.suggestionChip}
-              onPress={() => setSearchQuery(suggestion)}
-            >
-              <Text style={styles.suggestionText}>{suggestion}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.filterTabsContainer}>
-        <FilterTabs selectedFilter={selectedFilter} onSelectFilter={setSelectedFilter} />
-      </View>
-
-      {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-        </View>
-      ) : errorMsg ? (
-        <View style={styles.centerContainer}>
-          <Text style={styles.errorText}>{errorMsg}</Text>
-        </View>
-      ) : (
-        <View style={styles.mainContent}>
-          <TaskList 
-            tasks={getFilteredTasks()}
-            onToggle={handleToggleTask}
-            onEdit={handleEditTask}
-          />
-        </View>
-      )}
-
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-        style={styles.bottomSection}
-        pointerEvents="box-none"
+    <View style={{ paddingBottom: 24 }}>
+      {/* Pinned Facebook Post Composer Widget */}
+      <View
+        style={{
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: 12,
+          backgroundColor: cardBg,
+          borderBottomWidth: 1,
+          borderBottomColor: border,
+          marginBottom: 10,
+        }}
       >
-        <View style={styles.navBarContainer}>
-          <View style={styles.navBar}>
-            <TouchableOpacity style={[styles.navItem, styles.navItemActive]}>
-              <CheckCircle2 color={theme.colors.primary} size={28} strokeWidth={2.5} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navItem}>
-              <Calendar color={theme.colors.textMuted} size={24} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navItem} onPress={openSearch}>
-              <ListIcon color={theme.colors.textMuted} size={24} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.navItem}>
-              <Settings color={theme.colors.textMuted} size={24} />
-            </TouchableOpacity>
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Image
+            source={{ uri: authorAvatar }}
+            style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
+          />
 
-          <TouchableOpacity 
-            style={styles.fabInline}
-            onPress={() => {
-              setEditingTask(null);
-              setIsModalVisible(true);
+          <TouchableOpacity
+            onPress={onOpenAddModal}
+            activeOpacity={0.8}
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              borderRadius: 24,
+              backgroundColor: inputBg,
+              borderWidth: 1,
+              borderColor: border,
             }}
           >
-            <Plus color={theme.colors.surface} size={28} strokeWidth={2.5} />
+            <Text style={{ fontSize: 13, color: subTextColor }}>
+              What's on your mind, {authorName.split(' ')[0]}?
+            </Text>
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
 
-      <AddTaskModal
-        visible={isModalVisible}
-        onClose={() => setIsModalVisible(false)}
-        onSave={handleSaveTask}
-        editingTask={editingTask}
-        onDelete={handleDeleteTask}
-        initialTitle=""
-      />
-    </SafeAreaView>
+      {/* Facebook Stories Carousel */}
+      <View
+        style={{
+          backgroundColor: cardBg,
+          paddingVertical: 12,
+          paddingLeft: 16,
+          marginBottom: 10,
+          borderBottomWidth: 1,
+          borderBottomColor: border,
+        }}
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {/* Create Story Card */}
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={onOpenAddStory || onOpenAddModal}
+            style={{
+              width: 100,
+              height: 160,
+              borderRadius: 12,
+              marginRight: 10,
+              overflow: 'hidden',
+              backgroundColor: isDark ? '#3A3B3C' : '#E4E6EB',
+              position: 'relative',
+            }}
+          >
+            <Image
+              source={{ uri: authorAvatar }}
+              style={{ width: '100%', height: 110, resizeMode: 'cover' }}
+            />
+            <View
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                backgroundColor: cardBg,
+                height: 54,
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingTop: 8,
+              }}
+            >
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  backgroundColor: '#1877F2',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'absolute',
+                  top: -16,
+                  borderWidth: 2,
+                  borderColor: cardBg,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>
+                  +
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color: textColor,
+                }}
+              >
+                Create story
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Public Stories List */}
+          {stories.map((story) => (
+            <TouchableOpacity
+              key={story.id}
+              activeOpacity={0.9}
+              onPress={() => onViewStory && onViewStory(story)}
+              style={{
+                width: 100,
+                height: 160,
+                borderRadius: 12,
+                marginRight: 10,
+                overflow: 'hidden',
+                backgroundColor: isDark ? '#3A3B3C' : '#E4E6EB',
+                position: 'relative',
+              }}
+            >
+              <Image
+                source={{ uri: story.image }}
+                style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
+              />
+
+              {/* Author Avatar Badge in top-left */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  left: 8,
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  borderWidth: 2,
+                  borderColor: '#1877F2',
+                  overflow: 'hidden',
+                  backgroundColor: '#1877F2',
+                }}
+              >
+                <Image
+                  source={{ uri: story.avatar || authorAvatar }}
+                  style={{ width: '100%', height: '100%' }}
+                />
+              </View>
+
+              {/* Author Name at bottom */}
+              <Text
+                numberOfLines={2}
+                style={{
+                  position: 'absolute',
+                  bottom: 8,
+                  left: 8,
+                  right: 8,
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color: '#FFFFFF',
+                  textShadowColor: 'rgba(0,0,0,0.8)',
+                  textShadowOffset: { width: 0, height: 1 },
+                  textShadowRadius: 3,
+                }}
+              >
+                {story.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Category Filter Tabs */}
+      <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {['All', 'Work', 'Personal', 'Ideas'].map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 7,
+                borderRadius: 20,
+                backgroundColor:
+                  activeTab === tab
+                    ? '#1877F2'
+                    : isDark
+                    ? '#242526'
+                    : '#FFFFFF',
+                marginRight: 8,
+                borderWidth: 1,
+                borderColor: activeTab === tab ? '#1877F2' : border,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: '700',
+                  color: activeTab === tab ? '#FFFFFF' : textColor,
+                }}
+              >
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Meta AI Feed Digest Card (Almanac Guide Step 6 & 7) */}
+      {briefing && (
+        <AIBriefingCard
+          briefing={briefing}
+          loading={briefingLoading}
+          error={briefingError}
+          onRefresh={onRefreshBriefing}
+          onOpenChat={onOpenAIChat}
+          isDark={isDark}
+        />
+      )}
+
+      {/* Feed Post List */}
+      <View style={{ paddingHorizontal: 16 }}>
+        {filteredPosts.length === 0 ? (
+          <View
+            style={{
+              padding: 32,
+              alignItems: 'center',
+              backgroundColor: cardBg,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: border,
+            }}
+          >
+            <Text style={{ fontSize: 32, marginBottom: 8 }}>📰</Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: textColor }}>
+              No posts found
+            </Text>
+            <Text style={{ fontSize: 12, color: subTextColor, marginTop: 4 }}>
+              Try changing your filter or search query.
+            </Text>
+          </View>
+        ) : (
+          filteredPosts.map((post) => (
+            <TaskItem
+              key={post.id}
+              post={post}
+              onToggleComplete={onToggleComplete}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              onReact={onReact}
+              onAddComment={onAddComment}
+              onShare={onShare}
+              isDark={isDark}
+              user={user}
+            />
+          ))
+        )}
+      </View>
+    </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-    paddingTop: theme.spacing.xxl, // Added top padding to push app down
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
-  },
-  greeting: {
-    ...theme.typography.h1,
-    color: theme.colors.text,
-  },
-  dateText: {
-    ...theme.typography.caption,
-    color: theme.colors.textMuted,
-    marginTop: 2,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: theme.colors.border,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surface,
-    marginHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-    paddingHorizontal: theme.spacing.md,
-    height: 40,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: theme.spacing.sm,
-    color: theme.colors.text,
-    ...theme.typography.body,
-  },
-  clearText: {
-    color: theme.colors.textMuted,
-    padding: 4,
-  },
-  suggestionsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: theme.spacing.lg,
-    marginBottom: theme.spacing.md,
-  },
-  suggestionChip: {
-    backgroundColor: theme.colors.tagTimeBg,
-    borderRadius: theme.borderRadius.pill,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    marginRight: theme.spacing.sm,
-    marginBottom: theme.spacing.sm,
-  },
-  suggestionText: {
-    ...theme.typography.caption,
-    color: theme.colors.tagTimeText,
-  },
-  filterTabsContainer: {
-    paddingHorizontal: theme.spacing.lg,
-  },
-  mainContent: {
-    flex: 1,
-    paddingHorizontal: theme.spacing.lg,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  errorText: {
-    color: theme.colors.error,
-    ...theme.typography.body,
-  },
-  bottomSection: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: Platform.OS === 'ios' ? theme.spacing.xxl : 40,
-    paddingTop: theme.spacing.sm,
-  },
-  navBarContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  navBar: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: theme.colors.surfaceElevated,
-    borderRadius: theme.borderRadius.pill,
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.md,
-    marginRight: theme.spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  fabInline: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: theme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  navItem: {
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.pill,
-  },
-  navItemActive: {
-    backgroundColor: theme.colors.primaryLight,
-  },
-});
-
-export default HomeScreen;

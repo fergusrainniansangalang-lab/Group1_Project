@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "101207265074",
+    "project_id": "harbor-rn-2026",
+    "storage_bucket": "harbor-rn-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:101207265074:android:072c4a5f296b044cb1512b",
+        "android_client_info": {
+          "package_name": "com.harbor"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "101207265074-ot6jrpgtmm69r34easstcsbdh1k9ud3v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.harbor",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "101207265074-c2pq2dq37vit8iacd0ja40irhgkth039.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsDaYoKGUv43hxWcIxHkGKQDURJs3tdag"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "101207265074-c2pq2dq37vit8iacd0ja40irhgkth039.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "101207265074-ful1jhvt182edgb0ndt5sqkehqikqp47.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.harbor"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

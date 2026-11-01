@@ -1,4 +1,12 @@
 {
   "name": "ToDoApp",
-  "displayName": "ToDoApp"
+  "displayName": "ToDoApp",
+  "expo": {
+    "name": "ToDoApp",
+    "slug": "todoapp",
+    "version": "1.0.0",
+    "android": {
+      "softwareKeyboardLayoutMode": "pan"
+    }
+  }
 }

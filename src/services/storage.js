@@ -1,3 +1,13 @@
+// @file    storage.js
+// @folder  src/services/
+// @about   AsyncStorage helpers for user session, profile, and account persistence.
+//
+// What this file does:
+// - Defines storage key constants to prevent typo-related bugs.
+// - Saves and retrieves the current user session and profile data.
+// - Manages a list of recently signed-in accounts for the login screen switcher.
+// - Provides a clear-all utility for logout/cache-reset flows.
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Storage Keys
@@ -29,17 +39,8 @@ export const DEFAULT_TASKS = [
   },
 ];
 
-// Default Sample Accounts for Facebook-style Recent Logins
-export const DEFAULT_RECENT_ACCOUNTS = [
-  {
-    id: 'acc_1',
-    name: 'Alex Morgan',
-    email: 'alex.morgan@meta.com',
-    avatarColor: '#0866FF',
-    badge: '1',
-    lastActive: 'Active 2h ago',
-  },
-];
+// No default accounts — only accounts that have been signed in are stored
+export const DEFAULT_RECENT_ACCOUNTS = [];
 
 // Helper Functions
 export const getStoredTasks = async () => {
@@ -87,19 +88,14 @@ export const getRecentAccounts = async () => {
     const jsonValue = await AsyncStorage.getItem(STORAGE_KEYS.RECENT_ACCOUNTS);
     if (jsonValue !== null) {
       const parsed = JSON.parse(jsonValue);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
-    // If none yet, initialize with default recent account
-    await AsyncStorage.setItem(
-      STORAGE_KEYS.RECENT_ACCOUNTS,
-      JSON.stringify(DEFAULT_RECENT_ACCOUNTS)
-    );
-    return DEFAULT_RECENT_ACCOUNTS;
+    return [];
   } catch (e) {
     console.error('Error loading recent accounts:', e);
-    return DEFAULT_RECENT_ACCOUNTS;
+    return [];
   }
 };
 
@@ -114,6 +110,7 @@ export const saveRecentAccount = async (account) => {
         id: account.id || Date.now().toString(),
         name: account.name || 'User',
         email: account.email,
+        avatar: account.avatar || null,
         avatarColor: account.avatarColor || '#0866FF',
         badge: '1',
         lastActive: 'Active now',
